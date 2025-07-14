@@ -1,0 +1,35 @@
+- name: Get IP address of VIP
+  set_fact:
+    vip: "{{ groups['vip'][0] }}"
+
+- name: Load kubeadm tokens from VIP
+  include_vars:
+    file: "{{ playbook_dir }}/tmp/kubeadm_tokens.txt"
+  delegate_to: localhost
+
+- name: Create kubeadm join config file
+  copy:
+    dest: /home/devops/kubeadm-join-config.yaml
+    content: |
+      apiVersion: kubeadm.k8s.io/v1beta3
+      kind: JoinConfiguration
+      discovery:
+        bootstrapToken:
+          apiServerEndpoint: "{{ vip }}:6443"
+          token: "{{ join_token }}"
+          caCertHashes:
+            - "{{ ca_cert_hash }}"
+      nodeRegistration:
+        name: "{{ ansible_hostname }}"
+        kubeletExtraArgs:
+          cgroup-driver: cgroupfs
+
+
+- name: Join Kubernetes Other Worker Nodes
+  shell: kubeadm join --config=/home/devops/kubeadm-join-config.yaml
+  become: true
+
+# - name: Join Kubernetes Worker
+#   shell: |
+#     kubeadm join {{ vip }}:6443 --token {{ join_token }} \
+#     --discovery-token-ca-cert-hash {{ ca_cert_hash }}

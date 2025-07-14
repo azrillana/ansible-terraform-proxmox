@@ -1,0 +1,27 @@
+- name: Install Kubeadm
+  hosts: install-kubeadm
+  become: true
+  roles:
+    - install-kubeadm
+
+- name: First Control Plane
+  hosts: first-control-plane
+  become: true
+  roles:
+    - first-control-plane
+
+- name: Join as Control Plane
+  hosts: control-plane
+  become: true
+  roles:
+    - control-plane
+
+- name: Join as Worker
+  hosts: worker
+  become: true
+  roles:
+    - worker
+
+
+
+

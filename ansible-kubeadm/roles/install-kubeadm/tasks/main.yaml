@@ -1,0 +1,108 @@
+- name: Update apt and install dependencies
+  apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: yes
+  loop:
+    - apt-transport-https
+    - ca-certificates
+    - curl
+    - gpg
+    - docker.io
+
+- name: Create /etc/apt/keyrings directory
+  file:
+    path: /etc/apt/keyrings/
+    state: directory
+
+- name: Download Kubernetes GPG key
+  ansible.builtin.command:
+    cmd: "curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key -o /tmp/kubernetes-release.key"
+  become: true
+
+- name: Add GPG key to keyring
+  ansible.builtin.command:
+    cmd: "gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /tmp/kubernetes-release.key"
+  become: true
+
+- name: Clean up temporary GPG key file
+  ansible.builtin.file:
+    path: /tmp/kubernetes-release.key
+    state: absent
+  become: true
+
+- name: Add Kubernetes repository
+  apt_repository:
+    repo: 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /'
+    state: present
+  become: true
+
+- name: Install kubelet, kubeadm, kubectl
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Hold kubelet, kubeadm, kubectl packages
+  ansible.builtin.command:
+    cmd: "apt-mark hold kubelet kubeadm kubectl"
+  become: true
+
+- name: Enable and start kubelet service
+  systemd:
+    name: kubelet
+    enabled: yes
+    state: started
+
+- name: Disable swap and configure kernel modules
+  ansible.builtin.shell: |
+    sed -i '/swap/d' /etc/fstab
+    swapoff -a
+    mount -a
+    modprobe overlay
+    modprobe br_netfilter
+  become: true
+
+- name: Set system configurations for Kubernetes
+  ansible.builtin.copy:
+    content: |
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+      net.ipv4.ip_forward = 1
+    dest: /etc/sysctl.d/kubernetes.conf
+  become: true
+
+- name: Apply sysctl settings
+  ansible.builtin.command: sysctl --system
+  become: true
+
+- name: Create docker.service.d directory
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+  become: true
+
+- name: Configure Docker daemon.json
+  copy:
+    content: |
+      {
+        "exec-opts": ["native.cgroupdriver=systemd"],
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "100m"
+        },
+        "storage-driver": "overlay2"
+      }
+    dest: /etc/docker/daemon.json
+  become: true
+
+- name: Reload and restart Docker service
+  systemd:
+    name: docker
+    state: restarted
+    enabled: yes
+  become: true
