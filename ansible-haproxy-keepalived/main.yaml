@@ -1,0 +1,5 @@
+- name: Install Haproxy & Keepalived
+  hosts: haproxy_keepalived
+  become: true
+  roles:
+    - haproxy_keepalived

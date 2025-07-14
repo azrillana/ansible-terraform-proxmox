@@ -1,0 +1,3 @@
+[haproxy_keepalived]
+haproxy1 ansible_host=10.254.216.116
+haproxy2 ansible_host=10.254.216.117

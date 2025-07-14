@@ -1,0 +1,14 @@
+- name: SSH-COPY-ID
+  hosts: vanilla-cluster
+  become: yes
+  vars:
+    ansible_user: devops
+    ansible_password: P@ssw0rd@2022
+
+  tasks:
+    - name: Set Authorized Key
+      authorized_key:
+        user: devops
+        state: present
+        # key: "{{ lookup('file', './id_rsa.pub') }}"
+        key: "{{ lookup('file', '/home/manage/.ssh/id_rsa.pub') }}"
